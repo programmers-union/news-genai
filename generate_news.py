@@ -21,8 +21,8 @@ def scrapWeb(query,quantity):
     tavily_client = TavilyClient(api_key=tavily_api_key)
     try:
         web_search = tavily_client.search(query=query,search_depth="advanced",topic="news",days=10,max_results=quantity,include_images=True,include_image_descriptions=True,include_raw_content=True)
-        print(f"{GREEN}Web scrape successful and result written to webscrap.txt{RESET}")  
-        with open('webscrap.txt', 'w') as output:
+        print(f"{GREEN}Web scrape successful and result written to webscrap.json{RESET}")  
+        with open('webscrap.json', 'w') as output:
             output.write(json.dumps(web_search))
         return web_search
     except:
@@ -32,7 +32,7 @@ def scrapWeb(query,quantity):
 def getNewsArticle(result,image,siteName=""):
     client = OpenAI(api_key=openai_api_key)
     response = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model="gpt-4o",
         messages=[
             {"role": "developer", "content": f"You are a news reporter for news website called {siteName} , who shares unique view on various news topics with seo friendly content. And for the given content create a news report in valid json format"},
             {"role": "user", "content": result['raw_content']} 
@@ -93,6 +93,10 @@ def getNewsArticle(result,image,siteName=""):
                         "items": {
                             "type": "string"
                         }
+                    },
+                    "publish_date":{
+                        "description": "Publish date of the news article in ISO 8601 format,",
+                        "type": "string"
                     }
                 },
                 "required": [
@@ -104,7 +108,8 @@ def getNewsArticle(result,image,siteName=""):
                     "content",
                     "seo_title",
                     "seo_description",
-                    "keywords"
+                    "keywords",
+                    "publish_date"
                 ],
                 "additionalProperties": False
             }
@@ -114,12 +119,14 @@ def getNewsArticle(result,image,siteName=""):
     )
     article = json.loads(response.choices[0].message.content)
     # article = {"title":"Trump's Second Term Begins with Controversial Moves","slug":"trumps-second-term-controversial-moves","description":"President Trump pulls security clearances and signs numerous executive orders as he returns for a second term.","category":"politics","source":"https://www.foxnews.com","content":"As President Donald Trump steps into his second term as the 47th president of the United States, he is already making headlines with a series of controversial actions. Notably, Trump has revoked the security clearances of over 50 national security officials who, in a 2020 letter, described Hunter Biden's laptop allegations as having 'all the classic earmarks of a Russian information operation.' This decision has sparked discussions on how Trump plans to manage national security concerns moving forward.\n\nAdditionally, Trump's inaugural address set the stage for his policy direction, one that analysts are already calling a 'playbook' for his term. Among the most striking of Trump's first-day actions were the signing of a record number of executive orders. These orders cover a vast range of topics, signaling a swift move towards fulfilling his administration's goals.\n\nAmong Trump's headline-grabbing activities is his decision not to grant clemency to Ross Ulbricht, founder of Silk Road, despite previous indications that this would be a 'Day 1' priority. Meanwhile, a federal judge has restrained the release of the second volume of a special counsel report, indicating legal challenges that lie ahead.\n\nIn the international arena, Trump made bold statements about retaking the Panama Canal, which have elicited strong reactions from global leaders. This stance comes as Trump seeks to navigate complex geopolitical landscapes, with the world closely watching his 'America First' strategies.\n\nOn domestic policy, Trump's administration faces immediate pushback on birthright citizenship, with critics describing a recent presidential order as 'unconstitutional.' Despite the backlash, Trump's allies in the House are doubling down, introducing legislation to support his immigration agenda.","seo_title":"Trump's Bold Moves in Second Term","seo_description":"Trump revokes security clearances, signs record executive orders on first day of second term. Global and domestic challenges unfold.","keywords":["Trump second term","executive orders","security clearances","immigration policy","Panama Canal","America First"]}
+    altTxt = "Image default alt text"
+    if(image.get("description")!=None):
+        altTxt = image.get("description")
     article.update({
-        "image_url": image.get("url", "default_url_here"),  # Use default string if `url` is None
-        "image_alt": image.get("description", "default_description_here"),  # Use default string if `description` is None
+        "image_url": image.get("url", "/image_not_found.png"),  # Use default string if `url` is None
+        "image_alt": altTxt,  # Use default string if `description` is None
     })
-    print(f"{GREEN}One rticle has been written by chatgpt{RESET}")
-    # print(article)
+    print(f"{GREEN}Article generated with title:{article.get("title")} {RESET}")
     return article
 
 # Funtion to call api to add to database
@@ -161,33 +168,37 @@ def getInputquantity():
 
 def generateNews():
     promt = getInputPromt()
-    qty = getInputquantity()    
+    # qty = getInputquantity()    
     # do a web scrap
     print(f"{BLUE}Scrpaing the web for news{RESET}")
-    web_search = scrapWeb(query=promt,quantity=qty) 
+    web_search = scrapWeb(query=promt,quantity=5) 
     if web_search != None:
         output_file = "articlelist.jsonl"
-        # # for each result create an article object
+        # # for each result create an article object and write to the outpur file
         with open(output_file, "w") as file:
-            for i, result in enumerate(web_search["results"], start=1):
+            for i, result in enumerate(web_search["results"], start=0):
                 article = getNewsArticle(result=result,image=web_search["images"][i],siteName="ProgressKingdom")
                 file.write(json.dumps(article)+"\n" )
 
 
-        # save the article to jsonl and put item in database
-        with open("articlelist.jsonl", "r") as file:
-            for line in file:
-                try:
-                    # Parse the JSON object from the line
-                    data = json.loads(line.strip())
-                    
-                    # Make the POST request
-                    putToDatabase(data=data)
-                    
-                except json.JSONDecodeError:
-                    print("Error decoding JSON line:", line)
-                except requests.RequestException as e:
-                    print("Error with POST request:", e)
+        
+# upload the articles from jsonl to the database        
+def uploadNews():
+    with open("articlelist.jsonl", "r") as file:
+        for line in file:
+            try:
+                # Parse the JSON object from the line
+                data = json.loads(line.strip())
+                
+                # Make the POST request
+                putToDatabase(data=data)
+                
+            except json.JSONDecodeError:
+                print("Error decoding JSON line:", line)
+            except requests.RequestException as e:
+                print("Error with POST request:", e)
 
-
+# Asks for prompt and quantity
 generateNews()
+# Uploads to the database 
+uploadNews()
