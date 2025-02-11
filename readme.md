@@ -40,6 +40,9 @@ The Tavily OpenAI News Generator streamlines the process of creating news report
 
 ---
 
+## Architecture
+![Flow diagram of what's happenning](screenshots/architecture.png)
+
 ## Installation
 
 1. Clone the repository:
@@ -75,7 +78,7 @@ The Tavily OpenAI News Generator streamlines the process of creating news report
    ```
 
 3. Follow prompts to generate your news report.
-   ![Example of the cli](screenshot.png)
+   ![Example of the cli](screenshots/screenshot.png)
 
 ---
 
