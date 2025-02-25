@@ -17,8 +17,6 @@ load_dotenv()  # Load variables from .env file
 
 tavily_api_key = os.getenv("TAVILY_API_KEY")
 openai_api_key = os.getenv("OPENAI_API_KEY")
-# TODO: Use this for in case of public hosted upload api
-# upload_api_key = os.getenv("UPLOAD_API_KEY")
 
 def download_image(image_url,slug ):
     save_dir="uploads/"
@@ -61,28 +59,6 @@ def download_image(image_url,slug ):
         print(f"❌ Error downloading image: {e}")
         return None
 
-# def download_image(image_url, save_path="downloaded_image.jpg"):
-#     try:
-#         # Ensure the directory exists
-#         os.makedirs(os.path.dirname(save_path), exist_ok=True)
-
-#         headers = {
-#             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
-#         }
-#         response = requests.get(image_url,headers=headers, stream=True)
-#         response.raise_for_status()  # Raise an error for bad status codes
-        
-#         with open(save_path, "wb") as file:
-#             for chunk in response.iter_content(1024):
-#                 file.write(chunk)
-        
-#         print(f"✅ Image downloaded successfully: {save_path}")
-#         crop_image_to_16_9(save_path)
-#         return save_path
-#     except requests.exceptions.RequestException as e:
-#         print(f"❌ Error downloading image: {e}")
-#         return None
-
 def crop_image_to_16_9(image_path):
     try:
         with Image.open(image_path) as img:
@@ -110,9 +86,9 @@ def crop_image_to_16_9(image_path):
 def scrapWeb(query):
     tavily_client = TavilyClient(api_key=tavily_api_key)
     try:
-        web_search = tavily_client.search(query=query,search_depth="advanced",topic="news",days=10,max_results=5,include_images=True,include_image_descriptions=True,include_raw_content=True)
+        web_search = tavily_client.search(query=query,search_depth="advanced",topic="news",days=10,max_results=3,include_images=True,include_image_descriptions=True,include_raw_content=True)
         print("\r✅ Web scrape successful!          \n")  
-        with open('webscrap.json', 'w') as output:
+        with open('webscrap.json', 'a') as output:
             output.write(json.dumps(web_search))
         print(f"{GREEN}Web scrape successful and result written to webscrap.json{RESET}   \n")  
         return web_search
@@ -132,7 +108,6 @@ def getNewsArticle(result,image,scheema,siteName=""):
 
     )
     article = json.loads(response.choices[0].message.content)
-    # article = {"title":"Trump's Second Term Begins with Controversial Moves","slug":"trumps-second-term-controversial-moves","description":"President Trump pulls security clearances and signs numerous executive orders as he returns for a second term.","category":"politics","source":"https://www.foxnews.com","content":"As President Donald Trump steps into his second term as the 47th president of the United States, he is already making headlines with a series of controversial actions. Notably, Trump has revoked the security clearances of over 50 national security officials who, in a 2020 letter, described Hunter Biden's laptop allegations as having 'all the classic earmarks of a Russian information operation.' This decision has sparked discussions on how Trump plans to manage national security concerns moving forward.\n\nAdditionally, Trump's inaugural address set the stage for his policy direction, one that analysts are already calling a 'playbook' for his term. Among the most striking of Trump's first-day actions were the signing of a record number of executive orders. These orders cover a vast range of topics, signaling a swift move towards fulfilling his administration's goals.\n\nAmong Trump's headline-grabbing activities is his decision not to grant clemency to Ross Ulbricht, founder of Silk Road, despite previous indications that this would be a 'Day 1' priority. Meanwhile, a federal judge has restrained the release of the second volume of a special counsel report, indicating legal challenges that lie ahead.\n\nIn the international arena, Trump made bold statements about retaking the Panama Canal, which have elicited strong reactions from global leaders. This stance comes as Trump seeks to navigate complex geopolitical landscapes, with the world closely watching his 'America First' strategies.\n\nOn domestic policy, Trump's administration faces immediate pushback on birthright citizenship, with critics describing a recent presidential order as 'unconstitutional.' Despite the backlash, Trump's allies in the House are doubling down, introducing legislation to support his immigration agenda.","seo_title":"Trump's Bold Moves in Second Term","seo_description":"Trump revokes security clearances, signs record executive orders on first day of second term. Global and domestic challenges unfold.","keywords":["Trump second term","executive orders","security clearances","immigration policy","Panama Canal","America First"]}
     altTxt = "Image default alt text"
     if(image.get("description")!=None):
         altTxt = image.get("description")
@@ -140,7 +115,7 @@ def getNewsArticle(result,image,scheema,siteName=""):
     article.update({
         "image_url": file_name,  # Use default string if `url` is None
         "image_alt": altTxt,  # Use default string if `description` is None
-        "domain":"thecapitalistjournal.com"
+        "domain":"thecapitalistjournal.com" # TODO: chage domain
     })
     print(f"\r✅ {GREEN} Article generated with title:{article.get("title")} {RESET}     \n")
     return article
@@ -182,13 +157,12 @@ def generateNews():
                         "description": "Category of the news from the predefined list",
                         "type": "string",
                         "enum": [
-                            "the_world",
-                            "business_and_finance",
-                            "personal_finance",
-                            "economics",
+                            "world",
+                            "uk",
+                            "us"
+                            "companies",
                             "markets",
-                            "science_and_technology",
-                            "cryptocurrencies",
+                            "work-and-careers",
                         ]
                     },
                     "source": {
@@ -197,7 +171,7 @@ def generateNews():
                         "format": "uri"
                     },
                     "content": {
-                        "description": "Full content of the news article in 5-6 paragraphs with detailed view on the topic. each paragraph should be wraped inside p tag and if there are headings used wrap it with h2 tag",
+                        "description": "Full content of the news article in 5-6 paragraphs(with around 500 words in total) with detailed view on the topic that should engage with the audience. each paragraph should be wraped inside p tag and if there are headings used wrap it with h2 tag",
                         "type": "string"
                     },
                     "seo_title": {
@@ -205,7 +179,7 @@ def generateNews():
                         "type": "string"
                     },
                     "seo_description": {
-                        "description": "Short description for meta tags (150-160 characters)",
+                        "description": "Short description for meta tags (Max 160 characters)",
                         "type": "string"
                     },
                     "keywords": {
@@ -243,34 +217,10 @@ def generateNews():
         # # for each result create an article object and write to the outpur file
         with open(output_file, "a") as file:
             for i, result in enumerate(web_search["results"]):
-                article = getNewsArticle(result=result,image=web_search["images"][i],scheema=scheema,siteName="ProgressKingdom")
+                article = getNewsArticle(result=result,image=web_search["images"][i],scheema=scheema,siteName="TheCapitalistJournal.com")
                 file.write(json.dumps(article) + "\n" )
-    
-# upload the articles from jsonl to the database        
-def uploadNews(apiUrl):
-    with open("articlelist.jsonl", "r") as file:
-        for line in file:
-            try:
-                # Parse the JSON object from the line
-                data = json.loads(line.strip())
-                
-                # Make the POST request
-                headers = {
-                    'Content-Type': 'application/json',
-                    # 'Authorization': 'Bearer your-token-here'
-                }
-                payload = {"data": data}
-                response = requests.post(apiUrl, json=payload, headers=headers)
-                if response.status_code == 200:
-                    print("Successfuly add article to the backend:", response.json())
-                else:
-                    print("Failed with status code:", response.status_code)
-                    print("Response text:", response.text)
-                
-            except json.JSONDecodeError:
-                print("Error decoding JSON line:", line)
-            except requests.RequestException as e:
-                print("Error with POST request:", e)
+
+
 
 # Generating news and produces articlelist.json
 continueGeneration = True
@@ -281,7 +231,3 @@ while continueGeneration:
         continueGeneration = False
     else :
         continueGeneration = True
-
-
-# # Uploads to the database 
-# uploadNews(apiUrl='http://localhost:3000/api/article')

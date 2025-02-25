@@ -74,7 +74,7 @@ The Tavily OpenAI News Generator streamlines the process of creating news report
 
 2. Run the script:
    ```bash
-   python generate_news.py
+   python generate.py
    ```
 
 3. Follow prompts to generate your news report.
